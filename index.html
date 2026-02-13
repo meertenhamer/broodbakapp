@@ -402,93 +402,58 @@
 
         const readyTime = new Date(datum + 'T' + tijd + ':00');
 
-        // === STAP 1: Naïeve achterwaartse planning ===
+        // === STAP 1: Achterwaartse planning met stille-uren bewustzijn ===
+        // Werk achterwaarts van de eindtijd. Actieve stappen worden direct
+        // buiten stille uren geplaatst. De cursor houdt stappen aaneengesloten.
         let cursor = new Date(readyTime);
         for (let i = steps.length - 1; i >= 0; i--) {
-            steps[i].end = new Date(cursor);
-            steps[i].start = subMin(cursor, steps[i].dur);
-            cursor = steps[i].start;
+            let end = new Date(cursor);
+            let start = subMin(end, steps[i].dur);
+
+            if (!steps[i].canExtendCold && overlapsQuiet(start, end)) {
+                // Actieve stap valt in stille uren — verschuif
+                const newEnd = snapTo2200(end);
+                const newStart = subMin(newEnd, steps[i].dur);
+
+                if (!overlapsQuiet(newStart, newEnd)) {
+                    // Past vóór 22:00
+                    end = newEnd;
+                    start = newStart;
+                } else {
+                    // Past niet vóór 22:00, start na stille uren
+                    start = snapTo0800(start);
+                    end = addMin(start, steps[i].dur);
+                }
+            }
+
+            steps[i].end = end;
+            steps[i].start = start;
+            cursor = start;
         }
 
-        // === STAP 2: Fix stille-uren conflicten ===
-        // Groepeer opeenvolgende actieve (niet-canExtendCold) stappen
-        // en verschuif ze als groep buiten de stille uren.
-        for (let pass = 0; pass < 5; pass++) {
-            let shifted = false;
-            let i = 0;
-
-            while (i < steps.length) {
-                if (steps[i].canExtendCold) { i++; continue; }
-
-                // Vind het einde van deze groep actieve stappen
-                let j = i;
-                while (j < steps.length && !steps[j].canExtendCold) j++;
-
-                // Groep = steps[i..j-1]
-                const groupStart = steps[i].start;
-                const groupEnd = steps[j - 1].end;
-                const groupDur = (groupEnd - groupStart) / 60000;
-
-                // Check of de groep de stille uren raakt
-                if (overlapsQuiet(groupStart, groupEnd)) {
-                    // Probeer de groep te laten eindigen op 22:00
-                    const newEnd = snapTo2200(groupEnd);
-                    const newStart = subMin(newEnd, groupDur);
-
-                    if (!overlapsQuiet(newStart, newEnd)) {
-                        // Past vóór 22:00
-                        let cursor = new Date(newStart);
-                        for (let k = i; k < j; k++) {
-                            steps[k].start = new Date(cursor);
-                            cursor = addMin(cursor, steps[k].dur);
-                            steps[k].end = new Date(cursor);
-                        }
-                        shifted = true;
-                    } else {
-                        // Past niet voor 22:00, start in de ochtend
-                        const newStart2 = snapTo0800(groupStart);
-                        let cursor = new Date(newStart2);
-                        for (let k = i; k < j; k++) {
-                            steps[k].start = new Date(cursor);
-                            cursor = addMin(cursor, steps[k].dur);
-                            steps[k].end = new Date(cursor);
-                        }
-                        shifted = true;
-                    }
-                }
-
-                i = j;
-            }
-
-            if (!shifted) break;
-
-            // Herbereken: werk achterwaarts vanuit elke stap
-            for (let i = 1; i < steps.length; i++) {
-                if (steps[i].start < steps[i - 1].end) {
-                    steps[i - 1].end = new Date(steps[i].start);
-                    steps[i - 1].start = subMin(steps[i - 1].end, steps[i - 1].dur);
-                }
-            }
-
-            // Voorwaartse pas: canExtendCold stappen vullen gaten
-            for (let i = 1; i < steps.length; i++) {
-                const prevEnd = steps[i - 1].end;
-                const gap = (steps[i].start - prevEnd) / 60000;
-
-                if (steps[i].canExtendCold && gap > 0) {
-                    steps[i].start = new Date(prevEnd);
-                    steps[i].actualDur = (steps[i].end - steps[i].start) / 60000;
-                }
-            }
-        }
-
-        // === STAP 3: Voorwaartse pas — canExtendCold stappen vullen gaten ===
+        // === STAP 2: Voorwaartse pas — canExtendCold stappen vullen gaten ===
         for (let i = 1; i < steps.length; i++) {
             const prevEnd = steps[i - 1].end;
             if (steps[i].canExtendCold && prevEnd < steps[i].start) {
                 steps[i].start = new Date(prevEnd);
                 steps[i].actualDur = (steps[i].end - steps[i].start) / 60000;
             }
+        }
+
+        // === STAP 3: Validatie — lukt het schema? ===
+        let impossible = false;
+        for (const s of steps) {
+            if (!s.canExtendCold && overlapsQuiet(s.start, s.end)) {
+                impossible = true;
+                break;
+            }
+        }
+        if (impossible) {
+            const el = document.getElementById('result');
+            el.innerHTML = '<div class="result-header" style="color:#b91c1c">'
+                + 'Dit schema lukt niet — actieve stappen vallen in de nacht (22:00–' + QUIET_END_H + ':00). '
+                + 'Kies een latere eindtijd of een ander recept.</div>';
+            return;
         }
 
         // === STAP 4: Bouw weergave met slaap/wacht-markers ===
