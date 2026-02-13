@@ -337,7 +337,7 @@
     };
 
     const QUIET_START_H = 22;
-    const QUIET_END_H = 8;
+    const QUIET_END_H = 7;
 
     function addMin(d, m) { return new Date(d.getTime() + m * 60000); }
     function subMin(d, m) { return new Date(d.getTime() - m * 60000); }
@@ -411,57 +411,71 @@
         }
 
         // === STAP 2: Fix stille-uren conflicten ===
-        // Werk achterwaarts. Als een actieve stap in stille uren valt,
-        // schuif hem naar vóór 22:00. De voorgaande canExtendCold stap
-        // absorbeert het gat (koelkast-rijs).
+        // Groepeer opeenvolgende actieve (niet-canExtendCold) stappen
+        // en verschuif ze als groep buiten de stille uren.
         for (let pass = 0; pass < 5; pass++) {
             let shifted = false;
+            let i = 0;
 
-            for (let i = steps.length - 1; i >= 0; i--) {
-                const s = steps[i];
-                if (s.canExtendCold) continue; // flexibele stappen mogen in de nacht
+            while (i < steps.length) {
+                if (steps[i].canExtendCold) { i++; continue; }
 
-                // Check of start of eind in stille uren valt
-                if (isQuiet(s.start) || isQuiet(subMin(s.end, 1))) {
-                    // Probeer de stap te eindigen op 22:00
-                    const newEnd = snapTo2200(s.end);
-                    const newStart = subMin(newEnd, s.dur);
+                // Vind het einde van deze groep actieve stappen
+                let j = i;
+                while (j < steps.length && !steps[j].canExtendCold) j++;
 
-                    // Check of de nieuwe start ook buiten stille uren valt
-                    if (!isQuiet(newStart) && !isQuiet(subMin(newEnd, 1))) {
-                        s.end = newEnd;
-                        s.start = newStart;
+                // Groep = steps[i..j-1]
+                const groupStart = steps[i].start;
+                const groupEnd = steps[j - 1].end;
+                const groupDur = (groupEnd - groupStart) / 60000;
+
+                // Check of de groep de stille uren raakt
+                if (overlapsQuiet(groupStart, groupEnd)) {
+                    // Probeer de groep te laten eindigen op 22:00
+                    const newEnd = snapTo2200(groupEnd);
+                    const newStart = subMin(newEnd, groupDur);
+
+                    if (!overlapsQuiet(newStart, newEnd)) {
+                        // Past vóór 22:00
+                        let cursor = new Date(newStart);
+                        for (let k = i; k < j; k++) {
+                            steps[k].start = new Date(cursor);
+                            cursor = addMin(cursor, steps[k].dur);
+                            steps[k].end = new Date(cursor);
+                        }
+                        shifted = true;
                     } else {
-                        // Past niet voor 22:00, schuif naar de ochtend
-                        // (start om 08:00 van de dag dat de stap oorspronkelijk viel)
-                        const newStart2 = snapTo0800(s.start);
-                        s.start = newStart2;
-                        s.end = addMin(newStart2, s.dur);
+                        // Past niet voor 22:00, start in de ochtend
+                        const newStart2 = snapTo0800(groupStart);
+                        let cursor = new Date(newStart2);
+                        for (let k = i; k < j; k++) {
+                            steps[k].start = new Date(cursor);
+                            cursor = addMin(cursor, steps[k].dur);
+                            steps[k].end = new Date(cursor);
+                        }
+                        shifted = true;
                     }
-                    shifted = true;
                 }
+
+                i = j;
             }
 
             if (!shifted) break;
 
             // Herbereken: werk achterwaarts vanuit elke stap
-            // Elke stap i-1 moet eindigen voordat stap i begint
             for (let i = 1; i < steps.length; i++) {
                 if (steps[i].start < steps[i - 1].end) {
-                    // Overlap — schuif stap i-1 eerder
                     steps[i - 1].end = new Date(steps[i].start);
                     steps[i - 1].start = subMin(steps[i - 1].end, steps[i - 1].dur);
                 }
             }
 
-            // Voorwaartse pas: als stap i-1.end < stap i.start, is er een gat.
-            // Als stap i canExtendCold is, laat die het gat vullen.
+            // Voorwaartse pas: canExtendCold stappen vullen gaten
             for (let i = 1; i < steps.length; i++) {
                 const prevEnd = steps[i - 1].end;
                 const gap = (steps[i].start - prevEnd) / 60000;
 
                 if (steps[i].canExtendCold && gap > 0) {
-                    // Verleng deze stap om het gat te vullen
                     steps[i].start = new Date(prevEnd);
                     steps[i].actualDur = (steps[i].end - steps[i].start) / 60000;
                 }
