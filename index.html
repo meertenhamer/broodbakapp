@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Broodbak Planner</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #faf6f1;
+            color: #3e2c1c;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+            color: #5c3d2e;
+        }
+
+        .subtitle {
+            color: #8b7355;
+            margin-bottom: 32px;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        select, input[type="time"], input[type="date"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #d4c4a8;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #fff;
+            color: #3e2c1c;
+            appearance: none;
+            -webkit-appearance: none;
+        }
+
+        select {
+            background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b7355' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat right 12px center;
+            padding-right: 36px;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #a0845c;
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #d4c4a8;
+            border-radius: 8px;
+            background: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            color: #3e2c1c;
+            font-weight: 500;
+            transition: all 0.15s;
+        }
+
+        .toggle-btn.active {
+            background: #5c3d2e;
+            color: #fff;
+            border-color: #5c3d2e;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .row .form-group {
+            flex: 1;
+        }
+
+        button.plan-btn {
+            width: 100%;
+            padding: 14px;
+            background: #5c3d2e;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: background 0.15s;
+        }
+
+        button.plan-btn:hover {
+            background: #7a5540;
+        }
+
+        /* Timeline */
+        #result {
+            margin-top: 32px;
+        }
+
+        .result-header {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #5c3d2e;
+        }
+
+        .timeline {
+            position: relative;
+            padding-left: 24px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: #d4c4a8;
+        }
+
+        .step {
+            position: relative;
+            margin-bottom: 4px;
+            padding: 10px 14px;
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #e8ddd0;
+        }
+
+        .step::before {
+            content: '';
+            position: absolute;
+            left: -22px;
+            top: 16px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #d4c4a8;
+            border: 2px solid #faf6f1;
+        }
+
+        .step.active-step::before {
+            background: #5c3d2e;
+        }
+
+        .step.sleep-step {
+            background: #f0eae0;
+            border-style: dashed;
+            border-color: #d4c4a8;
+        }
+
+        .step.sleep-step::before {
+            background: #c4b49a;
+        }
+
+        .step-time {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #5c3d2e;
+        }
+
+        .step-day {
+            font-size: 0.8rem;
+            color: #8b7355;
+            font-weight: 400;
+            margin-left: 6px;
+        }
+
+        .step-name {
+            font-size: 0.9rem;
+            margin-top: 2px;
+            color: #5a4a3a;
+        }
+
+        .step-duration {
+            font-size: 0.8rem;
+            color: #a08b6e;
+            margin-top: 2px;
+        }
+
+        .note {
+            margin-top: 16px;
+            padding: 12px;
+            background: #f5eed8;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: #6b5a42;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Broodbak Planner</h1>
+        <p class="subtitle">Plan je bakdag — werk terug vanuit het moment dat je brood klaar moet zijn.</p>
+
+        <div class="form-group">
+            <label for="broodtype">Welk brood?</label>
+            <select id="broodtype">
+                <option value="zuurdesem">Zuurdesembrood</option>
+                <option value="zuurdesem_stokbrood">Zuurdesem stokbrood</option>
+                <option value="stokbrood">Stokbrood (gist)</option>
+                <option value="brood">Gewoon brood (gist)</option>
+            </select>
+        </div>
+
+        <div class="row">
+            <div class="form-group">
+                <label for="datum">Wanneer klaar? (datum)</label>
+                <input type="date" id="datum">
+            </div>
+            <div class="form-group">
+                <label for="tijd">Tijd</label>
+                <input type="time" id="tijd" value="12:00">
+            </div>
+        </div>
+
+        <div class="form-group" id="starter-group">
+            <label>Starter in de koelkast?</label>
+            <div class="toggle-group">
+                <button class="toggle-btn active" data-value="ja" onclick="setStarter(this)">Ja</button>
+                <button class="toggle-btn" data-value="nee" onclick="setStarter(this)">Nee</button>
+            </div>
+        </div>
+
+        <button class="plan-btn" onclick="plan()">Maak planning</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+    // Set default date to tomorrow
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    document.getElementById('datum').value = tomorrow.toISOString().slice(0, 10);
+
+    let starterInKoelkast = true;
+
+    function setStarter(btn) {
+        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        starterInKoelkast = btn.dataset.value === 'ja';
+    }
+
+    // Show/hide starter option based on bread type
+    document.getElementById('broodtype').addEventListener('change', function() {
+        const needsStarter = this.value.startsWith('zuurdesem');
+        document.getElementById('starter-group').style.display = needsStarter ? '' : 'none';
+    });
+
+    /*
+     * Recepten: elke stap heeft:
+     *   name: beschrijving
+     *   dur: duur in minuten (minimale duur)
+     *   canExtendCold: stap kan verlengd worden in de koelkast (bijv. rijzen)
+     *   skipIfStarterActive: sla over als starter al actief is
+     */
+    const recipes = {
+        zuurdesem: {
+            name: "Zuurdesembrood",
+            steps: [
+                { name: "Starter voeren (uit koelkast halen, voeren met meel+water)", dur: 360, skipIfStarterActive: true },
+                { name: "Autolyse — meel en water mengen, 30 min laten rusten", dur: 30 },
+                { name: "Starter, zout toevoegen en kneden", dur: 15 },
+                { name: "Bulk fermentatie (elke 30 min stretch & fold, daarna rusten)", dur: 240, canExtendCold: true },
+                { name: "Deeg vormen en in rijsmandje leggen", dur: 15 },
+                { name: "Narijs (afgedekt bij kamertemp, of in koelkast)", dur: 120, canExtendCold: true },
+                { name: "Oven voorverwarmen (met Dutch oven / gietijzeren pan)", dur: 45 },
+                { name: "Brood inscoren en bakken (deksel op: 25 min, deksel af: 20 min)", dur: 45 },
+                { name: "Afkoelen op rooster (niet snijden!)", dur: 30 },
+            ]
+        },
+        zuurdesem_stokbrood: {
+            name: "Zuurdesem stokbrood",
+            steps: [
+                { name: "Starter voeren (uit koelkast halen, voeren met meel+water)", dur: 360, skipIfStarterActive: true },
+                { name: "Deeg mengen (meel, water, starter, zout)", dur: 15 },
+                { name: "Bulk fermentatie (elke 30 min stretch & fold, daarna rusten)", dur: 210, canExtendCold: true },
+                { name: "Deeg verdelen en vormen tot stokbroden", dur: 20 },
+                { name: "Narijs op bakplaat (afgedekt)", dur: 60, canExtendCold: true },
+                { name: "Oven voorverwarmen (met stoom-bakplaat)", dur: 30 },
+                { name: "Inscoren en bakken (met stoom)", dur: 25 },
+                { name: "Afkoelen", dur: 15 },
+            ]
+        },
+        stokbrood: {
+            name: "Stokbrood (gist)",
+            steps: [
+                { name: "Deeg mengen (meel, water, gist, zout, snufje suiker)", dur: 15 },
+                { name: "Eerste rijs (afgedekt)", dur: 90, canExtendCold: true },
+                { name: "Deeg verdelen en vormen tot stokbroden", dur: 15 },
+                { name: "Tweede rijs op bakplaat (afgedekt)", dur: 60, canExtendCold: true },
+                { name: "Oven voorverwarmen (met stoom-bakplaat)", dur: 30 },
+                { name: "Inscoren en bakken (met stoom)", dur: 25 },
+                { name: "Afkoelen", dur: 15 },
+            ]
+        },
+        brood: {
+            name: "Gewoon brood (gist)",
+            steps: [
+                { name: "Deeg mengen en kneden (meel, water, gist, zout)", dur: 15 },
+                { name: "Eerste rijs (afgedekt)", dur: 90, canExtendCold: true },
+                { name: "Deeg opnieuw kneden en vormen", dur: 15 },
+                { name: "Tweede rijs in bakvorm (afgedekt)", dur: 60, canExtendCold: true },
+                { name: "Oven voorverwarmen", dur: 15 },
+                { name: "Bakken", dur: 35 },
+                { name: "Afkoelen op rooster", dur: 20 },
+            ]
+        }
+    };
+
+    const QUIET_START_H = 22;
+    const QUIET_END_H = 8;
+
+    function addMin(d, m) { return new Date(d.getTime() + m * 60000); }
+    function subMin(d, m) { return new Date(d.getTime() - m * 60000); }
+
+    function isQuiet(d) {
+        const h = d.getHours();
+        return h >= QUIET_START_H || h < QUIET_END_H;
+    }
+
+    // Schuif een tijdstip terug naar 22:00 (voor de stille uren)
+    function snapTo2200(d) {
+        const out = new Date(d);
+        if (out.getHours() >= QUIET_START_H) {
+            out.setHours(QUIET_START_H, 0, 0, 0);
+        } else if (out.getHours() < QUIET_END_H) {
+            out.setDate(out.getDate() - 1);
+            out.setHours(QUIET_START_H, 0, 0, 0);
+        }
+        return out;
+    }
+
+    // Schuif een tijdstip vooruit naar 08:00
+    function snapTo0800(d) {
+        const out = new Date(d);
+        if (out.getHours() >= QUIET_START_H) {
+            out.setDate(out.getDate() + 1);
+            out.setHours(QUIET_END_H, 0, 0, 0);
+        } else if (out.getHours() < QUIET_END_H) {
+            out.setHours(QUIET_END_H, 0, 0, 0);
+        }
+        return out;
+    }
+
+    // Check of een interval de stille uren raakt
+    function overlapsQuiet(start, end) {
+        const check = new Date(start);
+        while (check < end) {
+            if (isQuiet(check)) return true;
+            check.setMinutes(check.getMinutes() + 15);
+        }
+        return isQuiet(subMin(end, 1));
+    }
+
+    function plan() {
+        const type = document.getElementById('broodtype').value;
+        const datum = document.getElementById('datum').value;
+        const tijd = document.getElementById('tijd').value;
+
+        if (!datum || !tijd) {
+            alert('Vul datum en tijd in.');
+            return;
+        }
+
+        const recipe = recipes[type];
+        const needsStarter = type.startsWith('zuurdesem');
+
+        // Filter stappen
+        let steps = recipe.steps.filter(s => {
+            if (s.skipIfStarterActive && needsStarter && !starterInKoelkast) return false;
+            return true;
+        }).map(s => ({ ...s }));
+
+        const readyTime = new Date(datum + 'T' + tijd + ':00');
+
+        // === STAP 1: Naïeve achterwaartse planning ===
+        let cursor = new Date(readyTime);
+        for (let i = steps.length - 1; i >= 0; i--) {
+            steps[i].end = new Date(cursor);
+            steps[i].start = subMin(cursor, steps[i].dur);
+            cursor = steps[i].start;
+        }
+
+        // === STAP 2: Fix stille-uren conflicten ===
+        // Werk achterwaarts. Als een actieve stap in stille uren valt,
+        // schuif hem naar vóór 22:00. De voorgaande canExtendCold stap
+        // absorbeert het gat (koelkast-rijs).
+        for (let pass = 0; pass < 5; pass++) {
+            let shifted = false;
+
+            for (let i = steps.length - 1; i >= 0; i--) {
+                const s = steps[i];
+                if (s.canExtendCold) continue; // flexibele stappen mogen in de nacht
+
+                // Check of start of eind in stille uren valt
+                if (isQuiet(s.start) || isQuiet(subMin(s.end, 1))) {
+                    // Probeer de stap te eindigen op 22:00
+                    const newEnd = snapTo2200(s.end);
+                    const newStart = subMin(newEnd, s.dur);
+
+                    // Check of de nieuwe start ook buiten stille uren valt
+                    if (!isQuiet(newStart) && !isQuiet(subMin(newEnd, 1))) {
+                        s.end = newEnd;
+                        s.start = newStart;
+                    } else {
+                        // Past niet voor 22:00, schuif naar de ochtend
+                        // (start om 08:00 van de dag dat de stap oorspronkelijk viel)
+                        const newStart2 = snapTo0800(s.start);
+                        s.start = newStart2;
+                        s.end = addMin(newStart2, s.dur);
+                    }
+                    shifted = true;
+                }
+            }
+
+            if (!shifted) break;
+
+            // Herbereken: werk achterwaarts vanuit elke stap
+            // Elke stap i-1 moet eindigen voordat stap i begint
+            for (let i = 1; i < steps.length; i++) {
+                if (steps[i].start < steps[i - 1].end) {
+                    // Overlap — schuif stap i-1 eerder
+                    steps[i - 1].end = new Date(steps[i].start);
+                    steps[i - 1].start = subMin(steps[i - 1].end, steps[i - 1].dur);
+                }
+            }
+
+            // Voorwaartse pas: als stap i-1.end < stap i.start, is er een gat.
+            // Als stap i canExtendCold is, laat die het gat vullen.
+            for (let i = 1; i < steps.length; i++) {
+                const prevEnd = steps[i - 1].end;
+                const gap = (steps[i].start - prevEnd) / 60000;
+
+                if (steps[i].canExtendCold && gap > 0) {
+                    // Verleng deze stap om het gat te vullen
+                    steps[i].start = new Date(prevEnd);
+                    steps[i].actualDur = (steps[i].end - steps[i].start) / 60000;
+                }
+            }
+        }
+
+        // === STAP 3: Voorwaartse pas — canExtendCold stappen vullen gaten ===
+        for (let i = 1; i < steps.length; i++) {
+            const prevEnd = steps[i - 1].end;
+            if (steps[i].canExtendCold && prevEnd < steps[i].start) {
+                steps[i].start = new Date(prevEnd);
+                steps[i].actualDur = (steps[i].end - steps[i].start) / 60000;
+            }
+        }
+
+        // === STAP 4: Bouw weergave met slaap/wacht-markers ===
+        const displaySteps = [];
+        for (let i = 0; i < steps.length; i++) {
+            if (i > 0) {
+                const gapMs = steps[i].start - steps[i - 1].end;
+                const gapMin = gapMs / 60000;
+                if (gapMin >= 10) {
+                    const gapStart = steps[i - 1].end;
+                    const gapEnd = steps[i].start;
+                    const overnight = overlapsQuiet(gapStart, gapEnd);
+                    displaySteps.push({
+                        name: overnight ? "Slapen / wachten" : "Wachten",
+                        start: gapStart,
+                        end: gapEnd,
+                        dur: gapMin,
+                        isSleep: overnight
+                    });
+                }
+            }
+            displaySteps.push(steps[i]);
+        }
+
+        renderTimeline(displaySteps, recipe.name, readyTime);
+    }
+
+    function formatTime(date) {
+        return date.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function formatDay(date) {
+        const days = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag'];
+        const now = new Date();
+        const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const diff = Math.round((dateOnly - todayDate) / 86400000);
+
+        if (diff === 0) return 'vandaag';
+        if (diff === 1) return 'morgen';
+        if (diff === -1) return 'gisteren';
+        return days[date.getDay()] + ' ' + date.getDate() + '/' + (date.getMonth() + 1);
+    }
+
+    function formatDuration(mins) {
+        mins = Math.round(mins);
+        if (mins < 60) return mins + ' min';
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? h + 'u ' + m + 'min' : h + ' uur';
+    }
+
+    function renderTimeline(steps, recipeName, readyTime) {
+        const el = document.getElementById('result');
+
+        let html = `<div class="result-header">${recipeName} — klaar om ${formatTime(readyTime)}, ${formatDay(readyTime)}</div>`;
+        html += '<div class="timeline">';
+
+        for (const step of steps) {
+            const cls = step.isSleep ? 'step sleep-step' : (step.canExtendCold ? 'step' : 'step active-step');
+            const durVal = step.actualDur || step.dur;
+            const durLabel = formatDuration(durVal);
+
+            let extras = '';
+            if (step.canExtendCold && step.actualDur && step.actualDur > step.dur * 1.5) {
+                extras = ' <strong>(verlengd in koelkast)</strong>';
+            }
+
+            html += `<div class="${cls}">`;
+            html += `<div class="step-time">${formatTime(step.start)}<span class="step-day"> ${formatDay(step.start)}</span></div>`;
+            html += `<div class="step-name">${step.name}${extras}</div>`;
+            html += `<div class="step-duration">${durLabel}</div>`;
+            html += '</div>';
+        }
+
+        html += '</div>';
+
+        html += '<div class="note">';
+        html += '<strong>Tip:</strong> Alle tijden zijn richttijden. Let op je deeg, niet op de klok — deeg is klaar als het klaar is. ';
+        html += 'Temperatuur beïnvloedt de rijstijd: warmer = sneller, kouder = langzamer.';
+        html += '</div>';
+
+        el.innerHTML = html;
+        el.scrollIntoView({ behavior: 'smooth' });
+    }
+    </script>
+</body>
+</html>
