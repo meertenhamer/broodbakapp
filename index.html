@@ -212,6 +212,47 @@
             color: #6b5a42;
             line-height: 1.5;
         }
+
+        .ingredients {
+            margin-top: 16px;
+            margin-bottom: 8px;
+            padding: 16px;
+            background: #fff;
+            border: 2px solid #d4c4a8;
+            border-radius: 8px;
+        }
+
+        .ingredients h3 {
+            font-size: 1rem;
+            color: #5c3d2e;
+            margin-bottom: 12px;
+        }
+
+        .ingredients ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .ingredients li {
+            padding: 6px 0;
+            border-bottom: 1px solid #f0eae0;
+            font-size: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .ingredients li:last-child {
+            border-bottom: none;
+        }
+
+        .ingredients .ing-name {
+            color: #5a4a3a;
+        }
+
+        .ingredients .ing-amount {
+            font-weight: 600;
+            color: #5c3d2e;
+        }
     </style>
 </head>
 <body>
@@ -227,6 +268,15 @@
                 <option value="stokbrood">Stokbrood (gist)</option>
                 <option value="brood">Gewoon brood (gist)</option>
             </select>
+        </div>
+
+        <div class="form-group">
+            <label for="aantal">Hoeveel broden?</label>
+            <div class="toggle-group">
+                <button class="toggle-btn active" data-value="1" onclick="setAantal(this)">1</button>
+                <button class="toggle-btn" data-value="2" onclick="setAantal(this)">2</button>
+                <button class="toggle-btn" data-value="3" onclick="setAantal(this)">3</button>
+            </div>
         </div>
 
         <div class="row">
@@ -260,11 +310,18 @@
     document.getElementById('datum').value = tomorrow.toISOString().slice(0, 10);
 
     let starterInKoelkast = true;
+    let aantal = 1;
 
     function setStarter(btn) {
-        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         starterInKoelkast = btn.dataset.value === 'ja';
+    }
+
+    function setAantal(btn) {
+        btn.parentElement.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        aantal = parseInt(btn.dataset.value);
     }
 
     // Show/hide starter option based on bread type
@@ -334,6 +391,39 @@
                 { name: "Afkoelen op rooster", dur: 20 },
             ]
         }
+    };
+
+    /*
+     * Ingrediënten per recept (voor 1 brood/batch).
+     * Hoeveelheden worden vermenigvuldigd met het aantal broden.
+     * De basis is een broodbakmix (deegmix).
+     */
+    const ingredients = {
+        zuurdesem: [
+            { name: "Broodbakmix", amount: 500, unit: "g" },
+            { name: "Water (lauwwarm)", amount: 350, unit: "ml" },
+            { name: "Zuurdesemstarter", amount: 100, unit: "g" },
+            { name: "Zout", amount: 10, unit: "g" },
+        ],
+        zuurdesem_stokbrood: [
+            { name: "Broodbakmix", amount: 500, unit: "g" },
+            { name: "Water (lauwwarm)", amount: 370, unit: "ml" },
+            { name: "Zuurdesemstarter", amount: 100, unit: "g" },
+            { name: "Zout", amount: 10, unit: "g" },
+        ],
+        stokbrood: [
+            { name: "Broodbakmix", amount: 500, unit: "g" },
+            { name: "Water (lauwwarm)", amount: 340, unit: "ml" },
+            { name: "Droge gist", amount: 7, unit: "g" },
+            { name: "Zout", amount: 10, unit: "g" },
+            { name: "Snufje suiker", amount: 5, unit: "g" },
+        ],
+        brood: [
+            { name: "Broodbakmix", amount: 500, unit: "g" },
+            { name: "Water (lauwwarm)", amount: 320, unit: "ml" },
+            { name: "Droge gist", amount: 7, unit: "g" },
+            { name: "Zout", amount: 10, unit: "g" },
+        ],
     };
 
     const QUIET_START_H = 22;
@@ -478,7 +568,7 @@
             displaySteps.push(steps[i]);
         }
 
-        renderTimeline(displaySteps, recipe.name, readyTime);
+        renderTimeline(displaySteps, recipe.name, readyTime, type);
     }
 
     function formatTime(date) {
@@ -506,10 +596,25 @@
         return m > 0 ? h + 'u ' + m + 'min' : h + ' uur';
     }
 
-    function renderTimeline(steps, recipeName, readyTime) {
+    function renderTimeline(steps, recipeName, readyTime, type) {
         const el = document.getElementById('result');
 
         let html = `<div class="result-header">${recipeName} — klaar om ${formatTime(readyTime)}, ${formatDay(readyTime)}</div>`;
+
+        // Ingrediënten
+        const ings = ingredients[type];
+        if (ings) {
+            const aantalLabel = aantal === 1 ? '1 brood' : aantal + ' broden';
+            html += '<div class="ingredients">';
+            html += `<h3>Ingrediënten (${aantalLabel})</h3>`;
+            html += '<ul>';
+            for (const ing of ings) {
+                const scaled = ing.amount * aantal;
+                html += `<li><span class="ing-name">${ing.name}</span><span class="ing-amount">${scaled} ${ing.unit}</span></li>`;
+            }
+            html += '</ul></div>';
+        }
+
         html += '<div class="timeline">';
 
         for (const step of steps) {
