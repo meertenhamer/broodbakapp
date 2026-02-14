@@ -394,8 +394,9 @@
     };
 
     /*
-     * Ingrediënten per recept (voor 1 brood/batch).
-     * Hoeveelheden worden vermenigvuldigd met het aantal broden.
+     * Ingrediënten per recept (voor 1 batch).
+     * Brood: 1 batch = 1 brood. Stokbrood: 1 batch = 2 stokbroden.
+     * Hoeveelheden worden vermenigvuldigd met het aantal.
      * De basis is een broodbakmix (deegmix).
      */
     const ingredients = {
@@ -414,14 +415,14 @@
         stokbrood: [
             { name: "Broodbakmix", amount: 500, unit: "g" },
             { name: "Water (lauwwarm)", amount: 340, unit: "ml" },
-            { name: "Droge gist", amount: 7, unit: "g" },
+            { name: "Droge gist", amount: 3, unit: "g" },
             { name: "Zout", amount: 10, unit: "g" },
             { name: "Snufje suiker", amount: 5, unit: "g" },
         ],
         brood: [
             { name: "Broodbakmix", amount: 500, unit: "g" },
             { name: "Water (lauwwarm)", amount: 320, unit: "ml" },
-            { name: "Droge gist", amount: 7, unit: "g" },
+            { name: "Droge gist", amount: 3, unit: "g" },
             { name: "Zout", amount: 10, unit: "g" },
         ],
     };
@@ -604,7 +605,12 @@
         // Ingrediënten
         const ings = ingredients[type];
         if (ings) {
-            const aantalLabel = aantal === 1 ? '1 brood' : aantal + ' broden';
+            const isStokbrood = type === 'stokbrood' || type === 'zuurdesem_stokbrood';
+            const stuksPerBatch = isStokbrood ? 2 : 1;
+            const totaal = aantal * stuksPerBatch;
+            const aantalLabel = isStokbrood
+                ? totaal + ' stokbroden'
+                : (aantal === 1 ? '1 brood' : aantal + ' broden');
             html += '<div class="ingredients">';
             html += `<h3>Ingrediënten (${aantalLabel})</h3>`;
             html += '<ul>';
