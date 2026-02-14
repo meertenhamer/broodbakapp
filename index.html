@@ -394,8 +394,7 @@
     };
 
     /*
-     * Ingrediënten per recept (voor 1 batch).
-     * Brood: 1 batch = 1 brood. Stokbrood: 1 batch = 2 stokbroden.
+     * Ingrediënten per recept (per stuk).
      * Hoeveelheden worden vermenigvuldigd met het aantal.
      * De basis is een broodbakmix (deegmix).
      */
@@ -407,17 +406,17 @@
             { name: "Zout", amount: 10, unit: "g" },
         ],
         zuurdesem_stokbrood: [
-            { name: "Broodbakmix", amount: 500, unit: "g" },
-            { name: "Water (lauwwarm)", amount: 370, unit: "ml" },
-            { name: "Zuurdesemstarter", amount: 100, unit: "g" },
-            { name: "Zout", amount: 10, unit: "g" },
+            { name: "Broodbakmix", amount: 250, unit: "g" },
+            { name: "Water (lauwwarm)", amount: 185, unit: "ml" },
+            { name: "Zuurdesemstarter", amount: 50, unit: "g" },
+            { name: "Zout", amount: 5, unit: "g" },
         ],
         stokbrood: [
-            { name: "Broodbakmix", amount: 500, unit: "g" },
-            { name: "Water (lauwwarm)", amount: 340, unit: "ml" },
-            { name: "Droge gist", amount: 3, unit: "g" },
-            { name: "Zout", amount: 10, unit: "g" },
-            { name: "Snufje suiker", amount: 5, unit: "g" },
+            { name: "Broodbakmix", amount: 250, unit: "g" },
+            { name: "Water (lauwwarm)", amount: 170, unit: "ml" },
+            { name: "Droge gist", amount: 1.5, unit: "g" },
+            { name: "Zout", amount: 5, unit: "g" },
+            { name: "Snufje suiker", amount: 2.5, unit: "g" },
         ],
         brood: [
             { name: "Broodbakmix", amount: 500, unit: "g" },
@@ -606,10 +605,8 @@
         const ings = ingredients[type];
         if (ings) {
             const isStokbrood = type === 'stokbrood' || type === 'zuurdesem_stokbrood';
-            const stuksPerBatch = isStokbrood ? 2 : 1;
-            const totaal = aantal * stuksPerBatch;
             const aantalLabel = isStokbrood
-                ? totaal + ' stokbroden'
+                ? (aantal === 1 ? '1 stokbrood' : aantal + ' stokbroden')
                 : (aantal === 1 ? '1 brood' : aantal + ' broden');
             html += '<div class="ingredients">';
             html += `<h3>Ingrediënten (${aantalLabel})</h3>`;
